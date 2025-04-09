@@ -1,0 +1,21 @@
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sAllowedRepos
+metadata:
+  name: production-image-repos
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    namespaces:
+      - "production"
+      - "staging"
+      - "default"
+  parameters:
+    allowedRepos:
+      - "docker.io/company/"
+      - "gcr.io/prod-project/"
+      - "artifact-registry.company.com/"
+    exemptImages:
+      - "k8s.gcr.io/pause"
+      - "docker.io/library/redis:6.2"  # Specific allowed image

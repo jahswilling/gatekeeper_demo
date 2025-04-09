@@ -1,0 +1,54 @@
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: k8sallowedrepos
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sAllowedRepos
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            allowedRepos:
+              type: array
+              items:
+                type: string
+            exemptImages:
+              type: array
+              items: 
+                type: string
+              default: []
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8sallowedrepos
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          not exempt_image(container.image)
+          not valid_repo(container.image)
+          msg := sprintf("Container '%s' uses forbidden registry: %s (allowed: %v)", 
+            [container.name, container.image, input.parameters.allowedRepos])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.initContainers[_]
+          not exempt_image(container.image)
+          not valid_repo(container.image)
+          msg := sprintf("InitContainer '%s' uses forbidden registry: %s (allowed: %v)", 
+            [container.name, container.image, input.parameters.allowedRepos])
+        }
+
+        # Check if image matches any allowed repository pattern
+        valid_repo(image) {
+          repo := input.parameters.allowedRepos[_]
+          startswith(image, repo)
+        }
+
+        # Check if image is in exempt list (e.g., k8s.gcr.io/pause)
+        exempt_image(image) {
+          exempt := input.parameters.exemptImages[_]
+          exempt == image
+        }
